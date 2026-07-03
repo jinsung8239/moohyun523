@@ -459,7 +459,55 @@ function App() {
           <div className="empty-sequencer-state">
             <HelpCircle size={40} className="empty-icon animate-pulse" />
             <h3>Anti-Gravity Logic Pro Web Workspace</h3>
-            <p>Add a new track from the top action bar to begin arranging.</p>
+            <p>Select a track type below to begin arranging:</p>
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px', marginBottom: '20px', justifyContent: 'center' }}>
+              <button
+                onClick={() => handleAddTrack('synth')}
+                style={{
+                  backgroundColor: '#3bb1d8',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Software Instrument
+              </button>
+              <button
+                onClick={() => handleAddTrack('drum')}
+                style={{
+                  backgroundColor: '#4d9945',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Drum Machine
+              </button>
+              <button
+                onClick={() => handleAddTrack('audio')}
+                style={{
+                  backgroundColor: '#9c27b0',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                + Audio Track
+              </button>
+            </div>
             
             <button
               className="shortcut-info-btn"
