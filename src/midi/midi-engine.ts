@@ -427,7 +427,12 @@ export class MidiEngine {
    */
   public downloadMidiFile(filename: string, bpm: number = 120): void {
     const midiData = this.exportToMidiFile(bpm);
-    const blob = new Blob([new Uint8Array(midiData.buffer)], { type: 'audio/midi' });
+    // Convert Uint8Array to proper ArrayBuffer for Blob compatibility
+    const arrayBuffer = midiData.buffer.slice(
+      midiData.byteOffset,
+      midiData.byteOffset + midiData.byteLength
+    ) as ArrayBuffer;
+    const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');

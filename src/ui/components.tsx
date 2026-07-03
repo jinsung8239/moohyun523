@@ -286,10 +286,9 @@ interface PianoRollProps {
 export const PianoRoll: React.FC<PianoRollProps> = ({
   notes,
   totalSteps,
-  selectedPitch,
   onAddNote,
   onRemoveNote,
-  onUpdateNote
+  _onUpdateNote
 }) => {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -566,8 +565,17 @@ export const Button: React.FC<ButtonProps> = ({
         color: '#fff',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.2s',
-        ':hover': !disabled ? { filter: 'brightness(1.1)' } : {}
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled && e.currentTarget) {
+          e.currentTarget.style.filter = 'brightness(1.1)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (e.currentTarget) {
+          e.currentTarget.style.filter = 'none';
+        }
       }}
     >
       {children}
