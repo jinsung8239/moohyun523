@@ -8,6 +8,7 @@ interface TrackListProps {
   onSelectTrack: (trackId: string) => void;
   onDeleteTrack: (trackId: string) => void;
   onTrackChange: (shouldPushHistory?: boolean) => void;
+  onAddTrack: (type: 'synth' | 'drum' | 'audio') => void;
 }
 
 const PRESET_COLORS = ['#3bb1d8', '#ff9100', '#ffea00', '#4d9945', '#9c27b0', '#ff007f'];
@@ -18,11 +19,13 @@ export const TrackList: React.FC<TrackListProps> = ({
   onSelectTrack,
   onDeleteTrack,
   onTrackChange,
+  onAddTrack,
 }) => {
   const engine = AudioEngine.getInstance();
   const fileInputRefs = useRef<{ [trackId: string]: HTMLInputElement | null }>({});
   const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
   const [showColorPickerId, setShowColorPickerId] = useState<string | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   const handleMuteToggle = (track: Track) => {
     track.mute = !track.mute;
@@ -86,8 +89,91 @@ export const TrackList: React.FC<TrackListProps> = ({
 
   return (
     <div className="track-headers-column">
-      <div className="track-headers-title-bar">
+      <div className="track-headers-title-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
         <span>Track List and Timeline</span>
+        <button 
+          onClick={() => setShowAddMenu(!showAddMenu)}
+          style={{
+            backgroundColor: '#23252a',
+            border: '1px solid #3c424f',
+            borderRadius: '4px',
+            color: '#fff',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            padding: '2px 8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            height: '20px'
+          }}
+          title="Add a new MIDI, Drum or Audio Track"
+        >
+          + Add
+        </button>
+
+        {showAddMenu && (
+          <div 
+            style={{
+              position: 'absolute',
+              top: '28px',
+              right: '8px',
+              backgroundColor: '#1b1c20',
+              border: '1px solid #3c424f',
+              borderRadius: '4px',
+              width: '110px',
+              zIndex: 1100,
+              boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
+            }}
+          >
+            <button 
+              onClick={() => { onAddTrack('synth'); setShowAddMenu(false); }}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                textAlign: 'left',
+                padding: '6px 8px',
+                fontSize: '10px',
+                cursor: 'pointer',
+                borderBottom: '1px solid #23252a'
+              }}
+            >
+              + Synth Track
+            </button>
+            <button 
+              onClick={() => { onAddTrack('drum'); setShowAddMenu(false); }}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                textAlign: 'left',
+                padding: '6px 8px',
+                fontSize: '10px',
+                cursor: 'pointer',
+                borderBottom: '1px solid #23252a'
+              }}
+            >
+              + Drum Track
+            </button>
+            <button 
+              onClick={() => { onAddTrack('audio'); setShowAddMenu(false); }}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                textAlign: 'left',
+                padding: '6px 8px',
+                fontSize: '10px',
+                cursor: 'pointer'
+              }}
+            >
+              + Audio Track
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="track-headers-list">
