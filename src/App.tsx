@@ -148,51 +148,7 @@ function App() {
 
   useEffect(() => {
     engine.resetToEmptyState();
-
-    // 1. Synth Track
-    const synthTrack = engine.addNewTrack('synth');
-    synthTrack.name = "Piano Melody";
-    synthTrack.preset = 'piano';
-    synthTrack.color = '#3bb1d8';
-
-    // Add classic C major arpeggio melody (Piano notes)
-    synthTrack.steps[0] = ['C4'];
-    synthTrack.steps[4] = ['E4'];
-    synthTrack.steps[8] = ['G4'];
-    synthTrack.steps[12] = ['C5'];
-    synthTrack.steps[16] = ['G4'];
-    synthTrack.steps[20] = ['E4'];
-    synthTrack.steps[24] = ['C4'];
-    synthTrack.steps[28] = ['G3'];
-
-    // 2. Drum Track
-    const drumTrack = engine.addNewTrack('drum');
-    drumTrack.name = "House Beat";
-    drumTrack.color = '#4d9945';
-
-    if (drumTrack.drumSteps) {
-      // 32-step basic drum pattern
-      for (let i = 0; i < 32; i += 4) {
-        drumTrack.drumSteps.kick[i] = true;
-      }
-      for (let i = 4; i < 32; i += 8) {
-        drumTrack.drumSteps.snare[i] = true;
-      }
-      for (let i = 2; i < 32; i += 4) {
-        drumTrack.drumSteps.hihat[i] = true;
-      }
-      // Fill clap on step 12 and 28
-      drumTrack.drumSteps.clap[12] = true;
-      drumTrack.drumSteps.clap[28] = true;
-    }
-
-    // 3. Audio Track
-    const audioTrack = engine.addNewTrack('audio');
-    audioTrack.name = "Vocal Loop";
-    audioTrack.color = '#9c27b0';
-
-    setTracks(copyTracks(engine.tracks));
-    setSelectedTrackId(synthTrack.id);
+    setTracks([]);
   }, []);
 
   // Sync totalSteps to engine
