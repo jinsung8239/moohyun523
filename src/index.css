@@ -948,8 +948,10 @@ body {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-left: 3px;
   border-right: 1px solid rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
 }
 
 .ruler-tick-cell.beat-tick {

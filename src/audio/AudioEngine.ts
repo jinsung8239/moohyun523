@@ -607,11 +607,12 @@ export class AudioEngine {
     this.onStepCallback = onStep;
     this.onStateChangeCallback = onStateChange;
     this.stepDuration = 60.0 / this.bpm / 4.0;
-    this.nextStepTime = this.ctx.currentTime;
+    // Add a 60ms safe lookahead buffer so that step 0 notes are scheduled and played exactly on time
+    this.nextStepTime = this.ctx.currentTime + 0.06;
     
     this.tracks.forEach(track => {
       if (track.type === 'audio') {
-        this.playAudioTrackBuffer(track, this.ctx!.currentTime, this.currentStep);
+        this.playAudioTrackBuffer(track, this.nextStepTime, this.currentStep);
       }
     });
     
