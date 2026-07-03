@@ -120,9 +120,6 @@ function App() {
     input.click();
   };
 
-  // Mock Collaborators Telemetry
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -196,32 +193,6 @@ function App() {
 
     setTracks(copyTracks(engine.tracks));
     setSelectedTrackId(synthTrack.id);
-
-    // Initialize mock collaborators once tracks are available
-    const collabInterval = setInterval(() => {
-      if (engine.tracks.length > 0) {
-        setCollaborators([
-          {
-            id: 'collab-1',
-            name: 'Min-ji 👤',
-            color: '#EC4899', // Pink
-            step: Math.floor(Math.random() * engine.totalSteps),
-            trackId: engine.tracks[0].id
-          },
-          {
-            id: 'collab-2',
-            name: 'Ji-hoon 👤',
-            color: '#8B5CF6', // Violet
-            step: Math.floor(Math.random() * engine.totalSteps),
-            trackId: engine.tracks[1]?.id || engine.tracks[0].id
-          }
-        ]);
-      } else {
-        setCollaborators([]);
-      }
-    }, 2500);
-
-    return () => clearInterval(collabInterval);
   }, []);
 
   // Sync totalSteps to engine
@@ -369,8 +340,6 @@ function App() {
     pushHistory(engine.tracks);
     engine.deleteTrack(trackId);
     setTracks(copyTracks(engine.tracks));
-    // Remove collaborators on the deleted track
-    setCollaborators((prev) => prev.filter((c) => c.trackId !== trackId));
     if (selectedTrackId === trackId) {
       const remaining = engine.tracks;
       setSelectedTrackId(remaining.length > 0 ? remaining[0].id : null);
@@ -565,7 +534,6 @@ function App() {
               onSelectTrack={setSelectedTrackId}
               onDoubleClickRegion={handleDoubleClickRegion}
               onPlayheadMove={handlePlayheadMove}
-              collaborators={collaborators}
               bpm={bpm}
               onTrackChange={handleTrackChange}
               totalSteps={totalSteps}

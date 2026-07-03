@@ -8,7 +8,6 @@ interface ArrangerProps {
   onSelectTrack: (trackId: string) => void;
   onDoubleClickRegion: (track: Track) => void;
   onPlayheadMove: (step: number) => void;
-  collaborators: { id: string; name: string; color: string; step: number; trackId: string }[];
   bpm: number;
   onTrackChange: (shouldPushHistory?: boolean) => void;
   totalSteps: number;
@@ -33,7 +32,6 @@ export const Arranger: React.FC<ArrangerProps> = ({
   onSelectTrack,
   onDoubleClickRegion,
   onPlayheadMove,
-  collaborators,
   bpm,
   onTrackChange,
   totalSteps,
@@ -402,32 +400,10 @@ export const Arranger: React.FC<ArrangerProps> = ({
             <div className="playhead-triangle" />
           </div>
 
-          {/* 3. Collaborators Pointer Cursors */}
-          {collaborators.map((c) => (
-            <div
-              key={c.id}
-              className="arranger-telemetry-cursor"
-              style={{
-                left: `${c.step * zoom}px`,
-                borderColor: c.color,
-                // Offset vertically depending on matching track layout safely
-                top: (() => {
-                  const idx = tracks.findIndex((t) => t.id === c.trackId);
-                  return `${40 + (idx >= 0 ? idx : 0) * 80}px`;
-                })(),
-              }}
-            >
-              <div className="cursor-nametag" style={{ backgroundColor: c.color }}>
-                {c.name}
-              </div>
-            </div>
-          ))}
-
           {/* 4. Horizontal Track Blocks */}
           <div className="timeline-rows-container">
             {tracks.map((track) => {
               const isSelected = track.id === selectedTrackId;
-              const trackCollab = collaborators.find((c) => c.trackId === track.id);
               
               // Calculate start position and width of region
               let regionLeft = 0;
@@ -460,8 +436,6 @@ export const Arranger: React.FC<ArrangerProps> = ({
                       width: `${regionWidth}px`,
                       right: 'auto',
                       borderLeft: `3px solid ${track.color}`,
-                      // If collaborator is editing this track, draw a dotted border
-                      outline: trackCollab ? `2px dotted ${trackCollab.color}` : undefined,
                       cursor: track.type === 'audio' && track.audioBuffer ? 'grab' : 'pointer',
                     }}
                   >
