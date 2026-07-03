@@ -109,7 +109,7 @@ export class AudioEngine {
       this.output(buffer);
 
     } catch (error) {
-      this.handleBufferUnderrun(error);
+      this.handleBufferUnderrun(error as Error);
     }
   }
 
@@ -200,17 +200,17 @@ export class AudioEngine {
   /**
    * Output processed audio to device
    */
-  private output(buffer: AudioBuffer): void {
+  private output(_buffer: AudioBuffer): void {
     // Output to audio device
   }
-
+ 
   /**
    * Get current latency compensation in samples
    */
   getLatencyCompensation(): number {
     return this.latencyCompensation;
   }
-
+ 
   /**
    * Get current CPU usage percentage
    */
@@ -219,25 +219,25 @@ export class AudioEngine {
     return 0;
   }
 }
-
+ 
 export interface AudioProcessor {
   process(buffer: AudioBuffer): void;
   getLatency?(): number;
 }
-
+ 
 export interface PluginInstance extends AudioProcessor {
   enabled: boolean;
   parameters: Map<string, number>;
   getLatency?(): number;
 }
-
+ 
 export class PluginLoader {
-  static async load(path: string): Promise<PluginInstance> {
+  static async load(_path: string): Promise<PluginInstance> {
     // Plugin loading implementation
     return {
       enabled: true,
       parameters: new Map(),
-      process: (buffer: AudioBuffer) => {
+      process: (_buffer: AudioBuffer) => {
         // Default pass-through processing
       },
       getLatency: () => 0

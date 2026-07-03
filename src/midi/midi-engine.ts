@@ -197,8 +197,7 @@ export class MidiEngine {
    */
   processMidiMessage(status: number, data: number[]): Uint8Array {
     const messageType = status & 0xF0;
-    const channel = status & 0x0F;
-
+ 
     // Check if we can use running status
     if (this.runningStatus?.lastType === messageType) {
       // Use running status - omit status byte
@@ -277,9 +276,7 @@ export class MidiEngine {
   /**
    * Export track as Standard MIDI File
    */
-  exportToMidi(trackId: number): Uint8Array {
-    const trackNotes = this.notes.get(trackId) || [];
-    
+  exportToMidi(_trackId: number): Uint8Array {
     // Build MIDI file (simplified implementation)
     const chunks: number[] = [];
     
@@ -289,16 +286,16 @@ export class MidiEngine {
     chunks.push(0x00, 0x01); // Format 1 (multiple tracks)
     chunks.push(0x00, 0x01); // Number of tracks
     chunks.push(this.config.ticksPerBeat >> 8, this.config.ticksPerBeat & 0xFF);
-
+ 
     // MTrk chunk would go here...
     
     return Uint8Array.from(chunks);
   }
-
+ 
   /**
    * Import Standard MIDI File
    */
-  importFromMidi(data: Uint8Array, trackId: number): void {
+  importFromMidi(_data: Uint8Array, _trackId: number): void {
     // Parse MIDI file and populate notes
     // Implementation would parse MThd and MTrk chunks
     console.log('[MIDI] Import functionality to be implemented');

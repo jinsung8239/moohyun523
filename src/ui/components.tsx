@@ -80,7 +80,7 @@ interface NoteEvent {
  */
 export function useClickable(onClick: () => void, options?: { preventDefault?: boolean }) {
   const [isPressed, setIsPressed] = useState(false);
-  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const clickTimeout = useRef<any | null>(null);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (options?.preventDefault) {
@@ -124,7 +124,7 @@ export function useClickable(onClick: () => void, options?: { preventDefault?: b
  * Fixes: Incomplete drag and drop behavior
  */
 export function useDraggable<T>(
-  initialData: T,
+  _initialData: T,
   onDrop: (data: T, position: { x: number; y: number }) => void
 ) {
   const [isDragging, setIsDragging] = useState(false);
@@ -520,7 +520,6 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
   zoomLevel
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
 
   // Render piano roll
   useEffect(() => {
