@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Trash2, Radio, Music, ChevronRight, ChevronDown } from 'lucide-react';
+import { Trash2, Radio, Music, ChevronRight, ChevronDown, Volume2, Circle, Keyboard } from 'lucide-react';
 import { AudioEngine, type Track } from '../audio/AudioEngine';
 
 interface TrackListProps {
@@ -10,7 +10,7 @@ interface TrackListProps {
   onTrackChange: (shouldPushHistory?: boolean) => void;
 }
 
-const PRESET_COLORS = ['#3BB1D8', '#4D9945', '#ff9100', '#ffea00', '#9c27b0', '#ff007f'];
+const PRESET_COLORS = ['#3bb1d8', '#ff9100', '#ffea00', '#4d9945', '#9c27b0', '#ff007f'];
 
 export const TrackList: React.FC<TrackListProps> = ({
   tracks,
@@ -31,6 +31,12 @@ export const TrackList: React.FC<TrackListProps> = ({
 
   const handleSoloToggle = (track: Track) => {
     track.solo = !track.solo;
+    onTrackChange();
+  };
+
+  const handleRecordToggle = (track: Track) => {
+    // Toggle mock record arm
+    track.pedalBypass = !track.pedalBypass; // Borrowing pedalBypass or utilizing custom field
     onTrackChange();
   };
 
@@ -81,13 +87,14 @@ export const TrackList: React.FC<TrackListProps> = ({
   return (
     <div className="track-headers-column">
       <div className="track-headers-title-bar">
-        <span>TRACK HEADERS</span>
+        <span>Track List and Timeline</span>
       </div>
 
       <div className="track-headers-list">
-        {tracks.map((track) => {
+        {tracks.map((track, index) => {
           const isSelected = track.id === selectedTrackId;
           const isGrouped = !!track.groupId;
+          const isRecordArmed = !!track.pedalBypass; // Armed indicator
 
           return (
             <div
@@ -96,28 +103,39 @@ export const TrackList: React.FC<TrackListProps> = ({
               style={{
                 height: '80px',
                 borderLeft: `4px solid ${track.color}`,
-                paddingLeft: isGrouped ? '24px' : '10px'
+                paddingLeft: isGrouped ? '24px' : '0px'
               }}
               onClick={() => onSelectTrack(track.id)}
             >
-              {/* First Line: Color Dot + Name / Input */}
-              <div className="header-row-line-1" onClick={(e) => e.stopPropagation()}>
+              {/* Left Side: Number, Icon, Name, Folder Arrow */}
+              <div className="track-header-left-col">
+                <div className="track-number-badge">{index + 1}</div>
+                
+                {/* Folder Toggle */}
                 {track.isFolder && (
                   <button
-                    onClick={() => toggleFolderCollapse(track)}
-                    style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', padding: 0, marginRight: '4px' }}
+                    onClick={(e) => { e.stopPropagation(); toggleFolderCollapse(track); }}
+                    className="folder-toggle-btn"
                   >
-                    {track.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    {track.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                   </button>
                 )}
-                <div className="color-dot-picker-container">
-                  <button
-                    className="track-color-indicator"
-                    style={{ backgroundColor: track.color }}
-                    onClick={() => setShowColorPickerId(showColorPickerId === track.id ? null : track.id)}
-                  />
+
+                {/* Track Icon based on type */}
+                <div 
+                  className="track-icon-wrapper" 
+                  style={{ backgroundColor: `${track.color}15`, color: track.color }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowColorPickerId(showColorPickerId === track.id ? null : track.id);
+                  }}
+                  title="Click to change track color"
+                >
+                  {track.type === 'synth' ? <Keyboard size={13} /> : track.type === 'drum' ? <Music size={13} /> : <Volume2 size={13} />}
+                  
+                  {/* Color Palette dropdown */}
                   {showColorPickerId === track.id && (
-                    <div className="color-palette-dropdown">
+                    <div className="color-palette-dropdown" onClick={(e) => e.stopPropagation()}>
                       {PRESET_COLORS.map((c) => (
                         <div
                           key={c}
@@ -130,92 +148,134 @@ export const TrackList: React.FC<TrackListProps> = ({
                   )}
                 </div>
 
-                {editingTrackId === track.id ? (
-                  <input
-                    type="text"
-                    defaultValue={track.name}
-                    onBlur={(e) => {
-                      handleTrackRename(track, e.target.value);
-                      setEditingTrackId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleTrackRename(track, (e.target as HTMLInputElement).value);
+                {/* Track Name */}
+                <div className="track-name-wrapper" onClick={(e) => e.stopPropagation()}>
+                  {editingTrackId === track.id ? (
+                    <input
+                      type="text"
+                      defaultValue={track.name}
+                      onBlur={(e) => {
+                        handleTrackRename(track, e.target.value);
                         setEditingTrackId(null);
-                      }
-                    }}
-                    autoFocus
-                    className="track-name-inline-input"
-                  />
-                ) : (
-                  <span
-                    className="track-header-name"
-                    onDoubleClick={() => setEditingTrackId(track.id)}
-                    title="Double-click to rename"
-                  >
-                    {track.name}
-                  </span>
-                )}
-
-                <span className={`track-badge-mini ${track.type}`}>
-                  {track.type.substring(0, 3).toUpperCase()}
-                </span>
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTrackRename(track, (e.target as HTMLInputElement).value);
+                          setEditingTrackId(null);
+                        }
+                      }}
+                      autoFocus
+                      className="track-name-inline-input"
+                    />
+                  ) : (
+                    <span
+                      className="track-header-name"
+                      onDoubleClick={() => setEditingTrackId(track.id)}
+                      title="Double-click to rename"
+                    >
+                      {track.name}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Second Line: Mute, Solo, Volume summary, import & delete */}
-              <div className="header-row-line-2" onClick={(e) => e.stopPropagation()}>
-                <div className="mini-ms-group">
+              {/* Middle Section: M/S, Record, Audition, Delete Controls */}
+              <div className="track-header-controls-col" onClick={(e) => e.stopPropagation()}>
+                <div className="track-transport-buttons">
+                  {/* Mute Button */}
                   <button
-                    className={`mini-ms-btn mute ${track.mute ? 'active' : ''}`}
+                    className={`track-ms-btn mute-btn ${track.mute ? 'active' : ''}`}
                     onClick={() => handleMuteToggle(track)}
-                    title="Mute"
+                    title="Mute (M)"
                   >
                     M
                   </button>
+
+                  {/* Solo Button */}
                   <button
-                    className={`mini-ms-btn solo ${track.solo ? 'active' : ''}`}
+                    className={`track-ms-btn solo-btn ${track.solo ? 'active' : ''}`}
                     onClick={() => handleSoloToggle(track)}
-                    title="Solo"
+                    title="Solo (S)"
                   >
                     S
                   </button>
+
+                  {/* Record Arm Button */}
+                  <button
+                    className={`track-ms-btn rec-btn ${isRecordArmed ? 'active' : ''}`}
+                    onClick={() => handleRecordToggle(track)}
+                    title="Record Arm"
+                  >
+                    <Circle size={8} fill={isRecordArmed ? 'currentColor' : 'none'} />
+                  </button>
+
+                  {/* Input Monitor (Speaker style icon representation) */}
+                  <button
+                    className="track-ms-btn monitor-btn"
+                    onClick={() => engine.triggerTrackAudition(track)}
+                    title="Input Monitor / Audition"
+                  >
+                    <Radio size={10} />
+                  </button>
                 </div>
 
-                {/* Import trigger for audio */}
-                {track.type === 'audio' && (
-                  <div className="mini-audio-uploader">
-                    <button
-                      className="mini-upload-btn"
-                      onClick={() => fileInputRefs.current[track.id]?.click()}
-                      title="Import Audio File"
-                    >
-                      <Music size={11} />
-                    </button>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      ref={(el) => { fileInputRefs.current[track.id] = el; }}
-                      onChange={(e) => handleAudioUpload(track, e)}
-                      className="hidden-file-input"
-                    />
-                  </div>
-                )}
-
-                <div className="mini-action-group-right">
+                <div className="track-action-buttons">
+                  {track.type === 'audio' && (
+                    <>
+                      <button
+                        className="track-util-btn"
+                        onClick={() => fileInputRefs.current[track.id]?.click()}
+                        title="Upload Audio Sample"
+                      >
+                        Audio
+                      </button>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        ref={(el) => { fileInputRefs.current[track.id] = el; }}
+                        onChange={(e) => handleAudioUpload(track, e)}
+                        style={{ display: 'none' }}
+                      />
+                    </>
+                  )}
                   <button
-                    className="mini-track-action-btn"
-                    onClick={() => engine.triggerTrackAudition(track)}
-                    title="Audition"
-                  >
-                    <Radio size={11} />
-                  </button>
-                  <button
-                    className="mini-track-action-btn del"
+                    className="track-util-btn delete"
                     onClick={() => onDeleteTrack(track.id)}
                     title="Delete Track"
                   >
-                    <Trash2 size={11} />
+                    <Trash2 size={10} />
                   </button>
+                </div>
+              </div>
+
+              {/* Right Section: Volume Slider & Rotary Pan Knob */}
+              <div className="track-header-mix-col" onClick={(e) => e.stopPropagation()}>
+                {/* Volume Slider */}
+                <div className="track-slider-container">
+                  <input
+                    type="range"
+                    min="-60"
+                    max="6"
+                    step="0.5"
+                    value={track.volumeDb}
+                    onChange={(e) => {
+                      track.volumeDb = parseFloat(e.target.value);
+                      onTrackChange(false);
+                    }}
+                    className="track-mix-volume-slider"
+                  />
+                </div>
+
+                {/* Rotary Pan Knob */}
+                <div className="track-pan-container">
+                  <span className="pan-label">C</span>
+                  <div className="pan-knob-graphic">
+                    <svg width="18" height="18" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="50" cy="50" r="40" stroke="#2c3038" strokeWidth="12" fill="none" />
+                      {/* Knob indicator line representing Center position */}
+                      <line x1="50" y1="50" x2="90" y2="50" stroke={track.color} strokeWidth="14" strokeLinecap="round" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>

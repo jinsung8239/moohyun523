@@ -2,19 +2,19 @@ import { useState, useEffect, useRef } from 'react';
 import { AudioEngine, type Track } from './audio/AudioEngine';
 import { Navbar } from './components/Navbar';
 import { TrackList } from './components/TrackList';
-import { Inspector } from './components/Inspector';
+import { ProjectExplorer } from './components/ProjectExplorer';
+import { DeviceEffectRack } from './components/DeviceEffectRack';
 import { Arranger } from './components/Arranger';
 import { Mixer } from './components/Mixer';
 import { PianoRoll } from './components/PianoRoll';
 import { DrumPad } from './components/DrumPad';
-import { Visualizer } from './components/Visualizer';
 import { LiveLoops } from './components/LiveLoops';
 import { ScratchPad } from './components/ScratchPad';
 import { ActionManagerModal } from './components/ActionManagerModal';
 import { RoutingMatrix } from './components/RoutingMatrix';
 import { AutomationEditor } from './components/AutomationEditor';
 import { ArrangementEditor } from './components/ArrangementEditor';
-import { HelpCircle, Keyboard, Sliders, Maximize2, Minimize2 } from 'lucide-react';
+import { HelpCircle, Keyboard, Maximize2, Minimize2 } from 'lucide-react';
 import { exportTracksToMidi } from './audio/MidiExporter';
 
 const copyTracks = (tracksList: Track[]): Track[] => {
@@ -55,7 +55,7 @@ function App() {
   const [totalSteps, setTotalSteps] = useState(32); // Default project length in steps (32 steps = 2 bars)
   
   // Layout toggles & Workspace Tabs
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(true);
   const [lowerPanelOpen, setLowerPanelOpen] = useState(true);
   const [lowerPanelMaximized, setLowerPanelMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<'mixer' | 'pianoroll' | 'drumpad' | 'automation' | 'arrangement'>('mixer');
@@ -444,7 +444,7 @@ function App() {
   const selectedTrack = tracks.find(t => t.id === selectedTrackId);
 
   return (
-    <div className={`daw-container ${!inspectorOpen ? 'no-inspector' : ''} ${!lowerPanelOpen ? 'no-lower' : ''} ${isFullscreen ? 'pseudo-fullscreen' : ''} ${lowerPanelMaximized ? 'lower-maximized' : ''}`}>
+    <div className={`daw-container ${!libraryOpen ? 'no-library' : ''} ${!lowerPanelOpen ? 'no-lower' : ''} ${isFullscreen ? 'pseudo-fullscreen' : ''} ${lowerPanelMaximized ? 'lower-maximized' : ''}`}>
       
       {/* 1. Transport Control Header */}
       <div className="daw-header-container">
@@ -474,30 +474,14 @@ function App() {
           onOpenRoutingMatrix={() => setIsRoutingMatrixOpen(true)}
           onExportJson={handleExportJson}
           onImportJson={handleImportJson}
+          libraryOpen={libraryOpen}
+          onToggleLibrary={() => setLibraryOpen(!libraryOpen)}
         />
-        
-        {/* Panel Toggles */}
-        <div className="panel-toggles-floating">
-          <button
-            className={`toggle-icon-btn ${inspectorOpen ? 'active' : ''}`}
-            onClick={() => setInspectorOpen(!inspectorOpen)}
-            title="Toggle Left Inspector Panel"
-          >
-            <Sliders size={14} />
-          </button>
-          <button
-            className={`toggle-icon-btn ${lowerPanelOpen ? 'active' : ''}`}
-            onClick={() => setLowerPanelOpen(!lowerPanelOpen)}
-            title="Toggle Lower Editor Panel"
-          >
-            <Sliders size={14} className="rotate-90" />
-          </button>
-        </div>
       </div>
 
-      {/* 2. Left Column: Inspector Panel */}
-      <aside className="daw-inspector-container">
-        <Inspector track={selectedTrack || null} onTrackChange={handleTrackChange} />
+      {/* 2. Left Column: Project Explorer / Library Panel */}
+      <aside className="project-explorer-aside">
+        <ProjectExplorer />
       </aside>
 
       {/* 3. Right Column: Timeline / Arranger Workspace */}
@@ -550,13 +534,7 @@ function App() {
         )}
       </main>
 
-      {/* 4. Bottom Left: Visualizer Block */}
-      <div className="daw-visualizer-block">
-        <div className="visualizer-header">MASTER MONITOR</div>
-        <Visualizer isPlaying={isPlaying} />
-      </div>
-
-      {/* 5. Bottom Right: Editor / Console Lower Panel */}
+      {/* 4. Bottom: Editor / Console Lower Panel */}
       <section className="daw-lower-editor-container">
         {/* Tab Headers */}
         <div className="lower-tabs-bar">
@@ -602,60 +580,68 @@ function App() {
           </button>
         </div>
 
-        {/* Tab Views */}
-        <div className="lower-tab-content">
-          {activeTab === 'mixer' && (
-            <Mixer
-              tracks={tracks}
-              onTrackChange={handleTrackChange}
-              isPlaying={isPlaying}
-            />
-          )}
-          {activeTab === 'pianoroll' && (
-            <PianoRoll
-              track={selectedTrack || null}
-              tracks={tracks}
-              onSelectTrack={setSelectedTrackId}
-              currentStep={currentStep}
-              onUpdateSteps={handleTrackChange}
-              onPlayheadMove={handlePlayheadMove}
-              totalSteps={totalSteps}
-            />
-          )}
-          {activeTab === 'drumpad' && (
-            <DrumPad
-              track={selectedTrack || null}
-              tracks={tracks}
-              onSelectTrack={setSelectedTrackId}
-              currentStep={currentStep}
-              onUpdateSteps={handleTrackChange}
-              onPlayheadMove={handlePlayheadMove}
-              totalSteps={totalSteps}
-            />
-          )}
-          {activeTab === 'automation' && (
-            <AutomationEditor
-              tracks={tracks}
-              selectedTrackId={selectedTrackId}
-              onSelectTrack={setSelectedTrackId}
-              onUpdateSteps={handleTrackChange}
-              totalSteps={totalSteps}
-            />
-          )}
-          {activeTab === 'arrangement' && (
-            <ArrangementEditor
-              tracks={tracks}
-              bpm={bpm}
-              onBpmChange={handleBpmChange}
-              loopStart={loopStart}
-              loopEnd={loopEnd}
-              onLoopChange={handleLoopChange}
-              onExportWav={handleExportWav}
-              onExportMidi={handleExportMidi}
-              isExportingWav={isExportingWav}
-              totalSteps={totalSteps}
-            />
-          )}
+        {/* Split Editor Content: Left Device/Effect Rack, Right Tab views */}
+        <div className="lower-split-container">
+          <DeviceEffectRack 
+            selectedTrack={selectedTrack || null} 
+            onTrackChange={handleTrackChange} 
+          />
+          <div className="lower-tab-content-right">
+            <div className="lower-tab-content">
+              {activeTab === 'mixer' && (
+                <Mixer
+                  tracks={tracks}
+                  onTrackChange={handleTrackChange}
+                  isPlaying={isPlaying}
+                />
+              )}
+              {activeTab === 'pianoroll' && (
+                <PianoRoll
+                  track={selectedTrack || null}
+                  tracks={tracks}
+                  onSelectTrack={setSelectedTrackId}
+                  currentStep={currentStep}
+                  onUpdateSteps={handleTrackChange}
+                  onPlayheadMove={handlePlayheadMove}
+                  totalSteps={totalSteps}
+                />
+              )}
+              {activeTab === 'drumpad' && (
+                <DrumPad
+                  track={selectedTrack || null}
+                  tracks={tracks}
+                  onSelectTrack={setSelectedTrackId}
+                  currentStep={currentStep}
+                  onUpdateSteps={handleTrackChange}
+                  onPlayheadMove={handlePlayheadMove}
+                  totalSteps={totalSteps}
+                />
+              )}
+              {activeTab === 'automation' && (
+                <AutomationEditor
+                  tracks={tracks}
+                  selectedTrackId={selectedTrackId}
+                  onSelectTrack={setSelectedTrackId}
+                  onUpdateSteps={handleTrackChange}
+                  totalSteps={totalSteps}
+                />
+              )}
+              {activeTab === 'arrangement' && (
+                <ArrangementEditor
+                  tracks={tracks}
+                  bpm={bpm}
+                  onBpmChange={handleBpmChange}
+                  loopStart={loopStart}
+                  loopEnd={loopEnd}
+                  onLoopChange={handleLoopChange}
+                  onExportWav={handleExportWav}
+                  onExportMidi={handleExportMidi}
+                  isExportingWav={isExportingWav}
+                  totalSteps={totalSteps}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
