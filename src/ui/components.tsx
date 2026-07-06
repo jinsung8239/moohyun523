@@ -649,6 +649,7 @@ interface ContextMenuProps {
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [adjustedCoords, setAdjustedCoords] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -662,13 +663,37 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
     };
   }, [onClose]);
 
+  useEffect(() => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const winWidth = window.innerWidth;
+      const winHeight = window.innerHeight;
+      
+      let nextX = x;
+      let nextY = y;
+      
+      if (x + rect.width > winWidth) {
+        nextX = winWidth - rect.width - 10;
+      }
+      if (y + rect.height > winHeight) {
+        nextY = winHeight - rect.height - 10;
+      }
+      
+      setAdjustedCoords({
+        x: Math.max(10, nextX),
+        y: Math.max(10, nextY)
+      });
+    }
+  }, [x, y]);
+
   return (
     <div
       ref={menuRef}
       style={{
         position: 'fixed',
-        left: `${x}px`,
-        top: `${y}px`,
+        left: adjustedCoords ? `${adjustedCoords.x}px` : `${x}px`,
+        top: adjustedCoords ? `${adjustedCoords.y}px` : `${y}px`,
+        visibility: adjustedCoords ? 'visible' : 'hidden',
         backgroundColor: '#1b1c20',
         border: '1px solid #3c424f',
         borderRadius: '6px',
