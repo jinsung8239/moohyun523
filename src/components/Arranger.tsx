@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Track } from '../audio/AudioEngine';
+import { AudioEngine, type Track } from '../audio/AudioEngine';
+import { ContextMenu, type ContextMenuItem } from '../ui/components';
 
 interface ArrangerProps {
   tracks: Track[];
@@ -40,9 +41,58 @@ export const Arranger: React.FC<ArrangerProps> = ({
   onLoopChange,
   onTotalStepsChange,
 }) => {
-  const [zoom, setZoom] = useState<number>(32); // Step width in pixels (16 to 64)
+  const [zoom, setZoom] = useState<number>(36); // cell width in pixels (24 to 72)
   const [snap, setSnap] = useState<string>('1/16'); // 'Off', '1/8', '1/16'
   const [previewTotalSteps, setPreviewTotalSteps] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; trackId: string } | null>(null);
+  
+  const handleDeleteClip = (trackId: string) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t) return;
+    t.steps = {};
+    if (t.drumSteps) {
+      Object.keys(t.drumSteps).forEach(k => {
+        t.drumSteps[k] = Array(totalSteps).fill(false);
+      });
+    }
+    t.audioBuffer = undefined;
+    t.audioFileName = undefined;
+    onTrackChange(true);
+  };
+
+  const handleSplitClip = (trackId: string) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t) return;
+    const splitPoint = Math.floor(totalSteps / 2);
+    const newTrack: Track = {
+      ...t,
+      id: `track-${t.type}-${Date.now()}`,
+      name: `${t.name} (Split)`,
+      steps: {},
+      drumSteps: t.drumSteps ? JSON.parse(JSON.stringify(t.drumSteps)) : {},
+    };
+    Object.keys(t.steps).forEach(k => {
+      const step = Number(k);
+      if (step >= splitPoint) {
+        newTrack.steps[step] = t.steps[step];
+        delete t.steps[step];
+      }
+    });
+    // Remove drum machine steps after split point
+    if (t.drumSteps && newTrack.drumSteps) {
+      Object.keys(t.drumSteps).forEach(k => {
+        for (let i = splitPoint; i < totalSteps; i++) {
+          t.drumSteps[k][i] = false;
+        }
+        for (let i = 0; i < splitPoint; i++) {
+          newTrack.drumSteps[k][i] = false;
+        }
+      });
+    }
+    tracks.push(newTrack);
+    AudioEngine.getInstance().setupTrackNodes(newTrack);
+    onTrackChange(true);
+  };
   
   const activeTotalSteps = previewTotalSteps !== null ? previewTotalSteps : totalSteps;
   const BUFFER_STEPS = 128; // Add 8 bars of empty space on the right
@@ -430,7 +480,14 @@ export const Arranger: React.FC<ArrangerProps> = ({
                   {/* Block Region inside Track */}
                   <div
                     className="track-block-region"
-                    onMouseDown={(e) => handleRegionMouseDown(track, e)}
+                    onMouseDown={(e) => {
+                      if (e.button === 0) handleRegionMouseDown(track, e);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({ x: e.clientX, y: e.clientY, trackId: track.id });
+                    }}
                     style={{
                       left: `${regionLeft}px`,
                       width: `${regionWidth}px`,
@@ -535,6 +592,43 @@ export const Arranger: React.FC<ArrangerProps> = ({
 
         </div>
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            {
+              label: 'Copy Region Content',
+              onClick: () => {
+                const t = tracks.find(track => track.id === contextMenu.trackId);
+                if (!t) return;
+                const copy: Track = {
+                  ...t,
+                  id: `track-${t.type}-${Date.now()}`,
+                  name: `${t.name} Copy`,
+                  steps: JSON.parse(JSON.stringify(t.steps)),
+                  drumSteps: t.drumSteps ? JSON.parse(JSON.stringify(t.drumSteps)) : {},
+                };
+                tracks.push(copy);
+                AudioEngine.getInstance().setupTrackNodes(copy);
+                onTrackChange(true);
+              }
+            },
+            {
+              label: 'Split Region at Center (Bar 1/2)',
+              onClick: () => handleSplitClip(contextMenu.trackId)
+            },
+            {
+              label: 'Clear/Delete Region Content',
+              danger: true,
+              divider: true,
+              onClick: () => handleDeleteClip(contextMenu.trackId)
+            }
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };

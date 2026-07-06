@@ -218,6 +218,11 @@ export const TrackList: React.FC<TrackListProps> = ({
                 paddingLeft: isGrouped ? '24px' : '0px'
               }}
               onClick={() => onSelectTrack(track.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, trackId: track.id });
+              }}
             >
               {/* Left Side: Number, Icon, Name, Folder Arrow */}
               <div className="track-header-left-col">
@@ -394,6 +399,42 @@ export const TrackList: React.FC<TrackListProps> = ({
           );
         })}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            {
+              label: 'Track Copy (Duplicate)',
+              onClick: () => handleCopyTrack(contextMenu.trackId)
+            },
+            {
+              label: 'Change Color (Cycle)',
+              onClick: () => handleChangeColor(contextMenu.trackId)
+            },
+            {
+              label: 'Add Software Instrument (Synth)',
+              onClick: () => onAddTrack('synth')
+            },
+            {
+              label: 'Add Drum Machine',
+              onClick: () => onAddTrack('drum')
+            },
+            {
+              label: 'Add Audio Track',
+              onClick: () => onAddTrack('audio')
+            },
+            {
+              label: 'Delete Track',
+              danger: true,
+              divider: true,
+              onClick: () => onDeleteTrack(contextMenu.trackId)
+            }
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };

@@ -132,6 +132,25 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('.daw-container') ||
+        target.closest('.track-headers-column') ||
+        target.closest('.arranger-split-view') ||
+        target.closest('.piano-roll-panel') ||
+        target.closest('.empty-sequencer-state')
+      ) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('contextmenu', handleGlobalContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', handleGlobalContextMenu);
+    };
+  }, []);
+
   const handleFullscreenToggle = () => {
     if (isFullscreen) {
       if (document.fullscreenElement) {

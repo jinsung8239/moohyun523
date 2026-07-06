@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AudioEngine, type Track, NOTE_NAMES, SCALE_DEFINITIONS, isNoteInScale } from '../audio/AudioEngine';
 import { ZoomIn, ZoomOut, Sliders, Music, Sparkles } from 'lucide-react';
+import { ContextMenu, type ContextMenuItem } from '../ui/components';
 
 interface PianoRollProps {
   track: Track | null;
@@ -99,6 +100,7 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; startStep: number; pitch: string } | null>(null);
 
   const notesList = React.useMemo(() => {
     const list: { startStep: number; duration: number; pitch: string; noteObj: any }[] = [];
@@ -427,6 +429,37 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleDeleteNote = (startStep: number, pitch: string) => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    track.steps[startStep] = stepNotes.filter(n => {
+      const notePitch = typeof n === 'string' ? n : n.pitch;
+      return notePitch !== pitch;
+    });
+    if (track.steps[startStep].length === 0) {
+      delete track.steps[startStep];
+    }
+    onUpdateSteps();
+  };
+
+  const handleShiftOctave = (startStep: number, pitch: string, dir: 'up' | 'down') => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    const index = CHROMATIC_SCALE.indexOf(pitch);
+    if (index === -1) return;
+    const nextIdx = index + (dir === 'up' ? -12 : 12);
+    const nextPitch = CHROMATIC_SCALE[nextIdx];
+    if (!nextPitch) return;
+    track.steps[startStep] = stepNotes.map(n => {
+      if (typeof n === 'string') {
+        return n === pitch ? nextPitch : n;
+      } else {
+        return n.pitch === pitch ? { ...n, pitch: nextPitch } : n;
+      }
+    });
+    onUpdateSteps();
   };
 
   const clearPattern = () => {
@@ -766,6 +799,16 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
                           border: 'none',
                         }}
                         onMouseDown={(e) => handleNoteMouseDown(e, noteItem.startStep, note, noteItem.noteObj)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            startStep: noteItem.startStep,
+                            pitch: noteItem.pitch
+                          });
+                        }}
                       >
                         <div
                           className="note-resize-handle"
@@ -862,6 +905,34 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
           <span className="legend-item"><span className="legend-color playhead" /> Playhead (Click/Drag timeline to scrub)</span>
         </div>
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            {
+              label: 'Shift Octave Up (+12)',
+              onClick: () => handleShiftOctave(contextMenu.startStep, contextMenu.pitch, 'up')
+            },
+            {
+              label: 'Shift Octave Down (-12)',
+              onClick: () => handleShiftOctave(contextMenu.startStep, contextMenu.pitch, 'down')
+            },
+            {
+              label: 'Audition Note Sound',
+              onClick: () => AudioEngine.getInstance().triggerTrackAudition(track, contextMenu.pitch, 1)
+            },
+            {
+              label: 'Delete Note',
+              danger: true,
+              divider: true,
+              onClick: () => handleDeleteNote(contextMenu.startStep, contextMenu.pitch)
+            }
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 };
