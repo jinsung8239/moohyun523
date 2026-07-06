@@ -348,7 +348,7 @@ export class AudioEngine {
     this.isPianoLoading = false;
   }
   
-  private setupTrackNodes(track: Track) {
+  public setupTrackNodes(track: Track) {
     if (!this.ctx || !this.masterGain) return;
     
     const gain = this.ctx.createGain();

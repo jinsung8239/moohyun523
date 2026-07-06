@@ -632,3 +632,90 @@ export const Meter: React.FC<MeterProps> = ({
     </div>
   );
 };
+// ============ ContextMenu Component ============
+export interface ContextMenuItem {
+  label: string;
+  onClick: () => void;
+  divider?: boolean;
+  danger?: boolean;
+}
+
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  items: ContextMenuItem[];
+  onClose: () => void;
+}
+
+export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={menuRef}
+      style={{
+        position: 'fixed',
+        left: `${x}px`,
+        top: `${y}px`,
+        backgroundColor: '#1b1c20',
+        border: '1px solid #3c424f',
+        borderRadius: '6px',
+        padding: '4px 0',
+        minWidth: '150px',
+        zIndex: 10000,
+        boxShadow: '0 8px 16px rgba(0,0,0,0.6)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {items.map((item, idx) => (
+        <React.Fragment key={idx}>
+          {item.divider && <div style={{ height: '1px', backgroundColor: '#2d313a', margin: '4px 0' }} />}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              item.onClick();
+              onClose();
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: item.danger ? '#ff5252' : '#c5cad3',
+              textAlign: 'left',
+              padding: '6px 16px',
+              fontSize: '11px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              width: '100%',
+              transition: 'background-color 0.15s',
+              outline: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2c3038';
+              e.currentTarget.style.color = item.danger ? '#ff5252' : '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = item.danger ? '#ff5252' : '#c5cad3';
+            }}
+          >
+            {item.label}
+          </button>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};

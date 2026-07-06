@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Trash2, Radio, Music, ChevronRight, ChevronDown, Volume2, Circle, Keyboard } from 'lucide-react';
 import { AudioEngine, type Track } from '../audio/AudioEngine';
+import { ContextMenu, type ContextMenuItem } from '../ui/components';
 
 interface TrackListProps {
   tracks: Track[];
@@ -26,6 +27,31 @@ export const TrackList: React.FC<TrackListProps> = ({
   const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
   const [showColorPickerId, setShowColorPickerId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; trackId: string } | null>(null);
+
+  const handleCopyTrack = (trackId: string) => {
+    const trackToCopy = tracks.find(t => t.id === trackId);
+    if (!trackToCopy) return;
+    const copy: Track = {
+      ...trackToCopy,
+      id: `track-${trackToCopy.type}-${Date.now()}`,
+      name: `${trackToCopy.name} Copy`,
+      steps: JSON.parse(JSON.stringify(trackToCopy.steps)),
+      drumSteps: JSON.parse(JSON.stringify(trackToCopy.drumSteps || {})),
+    };
+    engine.tracks.push(copy);
+    engine.setupTrackNodes(copy);
+    onTrackChange(true);
+  };
+
+  const handleChangeColor = (trackId: string) => {
+    const t = tracks.find(t => t.id === trackId);
+    if (!t) return;
+    const currentIdx = PRESET_COLORS.indexOf(t.color);
+    const nextColor = PRESET_COLORS[(currentIdx + 1) % PRESET_COLORS.length];
+    t.color = nextColor;
+    onTrackChange(true);
+  };
 
   const handleMuteToggle = (track: Track) => {
     track.mute = !track.mute;

@@ -231,6 +231,7 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
   };
 
   const handleGridCellMouseDown = (e: React.MouseEvent<HTMLDivElement>, note: string) => {
+    if (e.button !== 0) return; // Only trigger for left-clicks
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickStep = clickX / zoom;
@@ -268,6 +269,7 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
   };
 
   const handleNoteMouseDown = (e: React.MouseEvent, startStep: number, pitch: string, noteObj: any) => {
+    if (e.button !== 0) return; // Only trigger for left-clicks
     e.stopPropagation();
     e.preventDefault();
 
