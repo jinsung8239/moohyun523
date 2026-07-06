@@ -93,6 +93,115 @@ export const Arranger: React.FC<ArrangerProps> = ({
     AudioEngine.getInstance().setupTrackNodes(newTrack);
     onTrackChange(true);
   };
+
+  const handleReverseAudio = (trackId: string) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t || !t.audioBuffer) return;
+    const ctx = AudioEngine.getInstance().ctx;
+    if (!ctx) return;
+    const buffer = t.audioBuffer;
+    const reversed = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const data = buffer.getChannelData(channel);
+      const revData = reversed.getChannelData(channel);
+      for (let i = 0; i < buffer.length; i++) {
+        revData[i] = data[buffer.length - 1 - i];
+      }
+    }
+    t.audioBuffer = reversed;
+    onTrackChange(true);
+  };
+
+  const handleGainAudio = (trackId: string, gainDb: number) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t || !t.audioBuffer) return;
+    const ctx = AudioEngine.getInstance().ctx;
+    if (!ctx) return;
+    const multiplier = Math.pow(10, gainDb / 20);
+    const buffer = t.audioBuffer;
+    const gained = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const data = buffer.getChannelData(channel);
+      const gainedData = gained.getChannelData(channel);
+      for (let i = 0; i < buffer.length; i++) {
+        gainedData[i] = Math.max(-1.0, Math.min(1.0, data[i] * multiplier));
+      }
+    }
+    t.audioBuffer = gained;
+    onTrackChange(true);
+  };
+
+  const handleNormalizeAudio = (trackId: string) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t || !t.audioBuffer) return;
+    const ctx = AudioEngine.getInstance().ctx;
+    if (!ctx) return;
+    const buffer = t.audioBuffer;
+    let peak = 0;
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const data = buffer.getChannelData(channel);
+      for (let i = 0; i < buffer.length; i++) {
+        const val = Math.abs(data[i]);
+        if (val > peak) peak = val;
+      }
+    }
+    if (peak === 0) return;
+    const scale = 0.95 / peak;
+    const normalized = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const data = buffer.getChannelData(channel);
+      const normData = normalized.getChannelData(channel);
+      for (let i = 0; i < buffer.length; i++) {
+        normData[i] = data[i] * scale;
+      }
+    }
+    t.audioBuffer = normalized;
+    onTrackChange(true);
+  };
+
+  const handleSplitAudioAtPlayhead = (trackId: string) => {
+    const t = tracks.find(track => track.id === trackId);
+    if (!t || !t.audioBuffer) return;
+    const ctx = AudioEngine.getInstance().ctx;
+    if (!ctx) return;
+    const audioStart = t.audioStartStep || 0;
+    const splitStep = currentStep;
+    const relativeSplitStep = splitStep - audioStart;
+    const stepDuration = 60.0 / bpm / 4.0;
+    const durationSteps = Math.ceil(t.audioBuffer.duration / stepDuration);
+    if (relativeSplitStep <= 0 || relativeSplitStep >= durationSteps) {
+      alert("Playhead must be inside the audio region to split!");
+      return;
+    }
+    const splitTime = relativeSplitStep * stepDuration;
+    const buffer = t.audioBuffer;
+    const splitSample = Math.floor(splitTime * buffer.sampleRate);
+    const buf1 = ctx.createBuffer(buffer.numberOfChannels, splitSample, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      buf1.getChannelData(channel).set(buffer.getChannelData(channel).subarray(0, splitSample));
+    }
+    const buf2Length = buffer.length - splitSample;
+    const buf2 = ctx.createBuffer(buffer.numberOfChannels, buf2Length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      buf2.getChannelData(channel).set(buffer.getChannelData(channel).subarray(splitSample));
+    }
+    const originalFileName = t.audioFileName || 'Audio';
+    t.audioBuffer = buf1;
+    t.audioFileName = `${originalFileName} (Part 1)`;
+    const nextTrack: Track = {
+      ...t,
+      id: `track-audio-${Date.now()}`,
+      name: `${t.name} (Split Part 2)`,
+      audioBuffer: buf2,
+      audioFileName: `${originalFileName} (Part 2)`,
+      audioStartStep: splitStep,
+      steps: {},
+      drumSteps: {},
+    };
+    tracks.push(nextTrack);
+    AudioEngine.getInstance().setupTrackNodes(nextTrack);
+    onTrackChange(true);
+  };
   
   const activeTotalSteps = previewTotalSteps !== null ? previewTotalSteps : totalSteps;
   const BUFFER_STEPS = 128; // Add 8 bars of empty space on the right
@@ -597,35 +706,69 @@ export const Arranger: React.FC<ArrangerProps> = ({
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          items={[
-            {
-              label: 'Copy Region Content',
-              onClick: () => {
-                const t = tracks.find(track => track.id === contextMenu.trackId);
-                if (!t) return;
-                const copy: Track = {
-                  ...t,
-                  id: `track-${t.type}-${Date.now()}`,
-                  name: `${t.name} Copy`,
-                  steps: JSON.parse(JSON.stringify(t.steps)),
-                  drumSteps: t.drumSteps ? JSON.parse(JSON.stringify(t.drumSteps)) : {},
-                };
-                tracks.push(copy);
-                AudioEngine.getInstance().setupTrackNodes(copy);
-                onTrackChange(true);
-              }
-            },
-            {
-              label: 'Split Region at Center (Bar 1/2)',
-              onClick: () => handleSplitClip(contextMenu.trackId)
-            },
-            {
-              label: 'Clear/Delete Region Content',
-              danger: true,
-              divider: true,
-              onClick: () => handleDeleteClip(contextMenu.trackId)
+          items={(() => {
+            const track = tracks.find(t => t.id === contextMenu.trackId);
+            if (!track) return [];
+            
+            if (track.type === 'audio') {
+              return [
+                {
+                  label: 'Split at Playhead (재생선에서 자르기)',
+                  onClick: () => handleSplitAudioAtPlayhead(contextMenu.trackId)
+                },
+                {
+                  label: 'Reverse Audio (역재생)',
+                  onClick: () => handleReverseAudio(contextMenu.trackId)
+                },
+                {
+                  label: 'Gain +3dB (음량 키우기)',
+                  onClick: () => handleGainAudio(contextMenu.trackId, 3)
+                },
+                {
+                  label: 'Gain -3dB (음량 줄이기)',
+                  onClick: () => handleGainAudio(contextMenu.trackId, -3)
+                },
+                {
+                  label: 'Normalize Audio (음량 최적화)',
+                  onClick: () => handleNormalizeAudio(contextMenu.trackId)
+                },
+                {
+                  label: 'Clear/Delete Region (삭제)',
+                  danger: true,
+                  divider: true,
+                  onClick: () => handleDeleteClip(contextMenu.trackId)
+                }
+              ];
+            } else {
+              return [
+                {
+                  label: 'Copy Region Content (클립 복제)',
+                  onClick: () => {
+                    const copy: Track = {
+                      ...track,
+                      id: `track-${track.type}-${Date.now()}`,
+                      name: `${track.name} Copy`,
+                      steps: JSON.parse(JSON.stringify(track.steps)),
+                      drumSteps: track.drumSteps ? JSON.parse(JSON.stringify(track.drumSteps)) : {},
+                    };
+                    tracks.push(copy);
+                    AudioEngine.getInstance().setupTrackNodes(copy);
+                    onTrackChange(true);
+                  }
+                },
+                {
+                  label: 'Split Region at Center (Bar 1/2)',
+                  onClick: () => handleSplitClip(contextMenu.trackId)
+                },
+                {
+                  label: 'Clear/Delete Region Content (삭제)',
+                  danger: true,
+                  divider: true,
+                  onClick: () => handleDeleteClip(contextMenu.trackId)
+                }
+              ];
             }
-          ]}
+          })()}
           onClose={() => setContextMenu(null)}
         />
       )}

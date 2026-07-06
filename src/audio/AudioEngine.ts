@@ -87,7 +87,7 @@ export interface Track {
   // Preset
   preset: 'lead' | 'bass' | 'pluck' | 'pad' | 'piano' | 'sustain_piano';
   
-  steps: { [step: number]: (string | { pitch: string; duration: number })[] }; // Synth: step (0-31) -> array of note strings or objects
+  steps: { [step: number]: (string | { pitch: string; duration: number; muted?: boolean })[] }; // Synth: step (0-31) -> array of note strings or objects
   drumSteps: { [inst: string]: boolean[] }; // Drum: inst -> 32 steps
   
   // Audio Track Buffer
@@ -756,7 +756,10 @@ export class AudioEngine {
             notes.forEach(noteObj => {
               const noteName = typeof noteObj === 'string' ? noteObj : noteObj.pitch;
               const durationSteps = typeof noteObj === 'string' ? 1 : (noteObj.duration || 1);
-              this.playSynthNote(track, noteName, noteTime, nodes.eqLow, durationSteps);
+              const isMuted = typeof noteObj === 'string' ? false : !!(noteObj as any).muted;
+              if (!isMuted) {
+                this.playSynthNote(track, noteName, noteTime, nodes.eqLow, durationSteps);
+              }
             });
           }
         });

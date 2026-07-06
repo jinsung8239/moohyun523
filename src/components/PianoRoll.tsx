@@ -462,6 +462,116 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
     onUpdateSteps();
   };
 
+  const handleQuantizeNote = (startStep: number, pitch: string) => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    const noteObj = stepNotes.find(n => (typeof n === 'string' ? n : n.pitch) === pitch);
+    if (!noteObj) return;
+    
+    let snapVal = 1;
+    if (snap === '1/4') snapVal = 4;
+    else if (snap === '1/8') snapVal = 2;
+    
+    const targetStep = Math.round(startStep / snapVal) * snapVal;
+    
+    if (targetStep !== startStep) {
+      track.steps[startStep] = stepNotes.filter(n => (typeof n === 'string' ? n : n.pitch) !== pitch);
+      if (track.steps[startStep].length === 0) {
+        delete track.steps[startStep];
+      }
+      if (!track.steps[targetStep]) {
+        track.steps[targetStep] = [];
+      }
+      track.steps[targetStep] = [...track.steps[targetStep].filter(n => (typeof n === 'string' ? n : n.pitch) !== pitch), noteObj];
+    }
+    onUpdateSteps();
+  };
+
+  const handleMuteNoteToggle = (startStep: number, pitch: string) => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    track.steps[startStep] = stepNotes.map(n => {
+      const notePitch = typeof n === 'string' ? n : n.pitch;
+      if (notePitch === pitch) {
+        if (typeof n === 'string') {
+          return { pitch: n, duration: 1, muted: true };
+        } else {
+          return { ...n, muted: !n.muted };
+        }
+      }
+      return n;
+    });
+    onUpdateSteps();
+  };
+
+  const handleTransposeNote = (startStep: number, pitch: string, semitones: number) => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    const index = CHROMATIC_SCALE.indexOf(pitch);
+    if (index === -1) return;
+    const nextIdx = index - semitones;
+    const nextPitch = CHROMATIC_SCALE[nextIdx];
+    if (!nextPitch) return;
+    
+    track.steps[startStep] = stepNotes.map(n => {
+      if (typeof n === 'string') {
+        return n === pitch ? nextPitch : n;
+      } else {
+        return n.pitch === pitch ? { ...n, pitch: nextPitch } : n;
+      }
+    });
+    onUpdateSteps();
+  };
+
+  const handleDuplicateNote = (startStep: number, pitch: string) => {
+    if (!track) return;
+    const stepNotes = track.steps[startStep] || [];
+    const noteObj = stepNotes.find(n => (typeof n === 'string' ? n : n.pitch) === pitch);
+    if (!noteObj) return;
+    const duration = typeof noteObj === 'string' ? 1 : (noteObj.duration || 1);
+    const targetStep = startStep + duration;
+    
+    if (!track.steps[targetStep]) {
+      track.steps[targetStep] = [];
+    }
+    const filtered = track.steps[targetStep].filter(n => (typeof n === 'string' ? n : n.pitch) !== pitch);
+    const duplicateNote = typeof noteObj === 'string'
+      ? { pitch, duration }
+      : { ...noteObj };
+      
+    track.steps[targetStep] = [...filtered, duplicateNote];
+    onUpdateSteps();
+  };
+
+  const handleLegato = (startStep: number, pitch: string) => {
+    if (!track) return;
+    let nextStartStep = -1;
+    Object.keys(track.steps).forEach(k => {
+      const step = Number(k);
+      if (step > startStep) {
+        const hasSamePitch = (track.steps[step] || []).some(n => (typeof n === 'string' ? n : n.pitch) === pitch);
+        if (hasSamePitch) {
+          if (nextStartStep === -1 || step < nextStartStep) {
+            nextStartStep = step;
+          }
+        }
+      }
+    });
+    
+    if (nextStartStep !== -1) {
+      const duration = nextStartStep - startStep;
+      const stepNotes = track.steps[startStep] || [];
+      track.steps[startStep] = stepNotes.map(n => {
+        if (typeof n === 'string') {
+          return n === pitch ? { pitch: n, duration } : n;
+        } else {
+          return n.pitch === pitch ? { ...n, duration } : n;
+        }
+      });
+      onUpdateSteps();
+    }
+  };
+
   const clearPattern = () => {
     track.steps = {};
     onUpdateSteps();
@@ -776,27 +886,28 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
                     const left = noteItem.startStep * zoom;
                     const width = noteItem.duration * zoom;
                     const vel = getNoteVelocity(noteItem.startStep, noteItem.pitch);
-                    const opacity = 0.4 + (vel / 127) * 0.6;
+                    const isMuted = typeof noteItem.noteObj === 'string' ? false : !!noteItem.noteObj.muted;
+                    const opacity = isMuted ? 0.25 : 0.4 + (vel / 127) * 0.6;
                     
                     return (
                       <div
                         key={`${noteItem.startStep}-${noteIdx}`}
-                        className="grid-cell active-cell"
+                        className={`grid-cell active-cell ${isMuted ? 'muted-note-block' : ''}`}
                         style={{
                           position: 'absolute',
                           left: `${left}px`,
                           width: `${width}px`,
                           height: '22px',
                           top: '2px',
-                          backgroundColor: track.color,
-                          boxShadow: `0 0 10px ${track.color}`,
+                          backgroundColor: isMuted ? '#555' : track.color,
+                          boxShadow: isMuted ? 'none' : `0 0 10px ${track.color}`,
                           opacity,
                           borderRadius: '4px',
                           zIndex: 5,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'flex-end',
-                          border: 'none',
+                          border: isMuted ? '1px dashed #888' : 'none',
                         }}
                         onMouseDown={(e) => handleNoteMouseDown(e, noteItem.startStep, note, noteItem.noteObj)}
                         onContextMenu={(e) => {
@@ -911,6 +1022,48 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
           x={contextMenu.x}
           y={contextMenu.y}
           items={[
+            {
+              label: 'Quantize Note (그리드 맞춤)',
+              onClick: () => handleQuantizeNote(contextMenu.startStep, contextMenu.pitch)
+            },
+            {
+              label: 'Velocity (세기 조절)',
+              onClick: () => {
+                const currentVel = getNoteVelocity(contextMenu.startStep, contextMenu.pitch);
+                const input = prompt('Enter note velocity (1-127):', currentVel.toString());
+                if (input !== null) {
+                  const val = parseInt(input);
+                  if (!isNaN(val) && val >= 1 && val <= 127) {
+                    handleVelocityChange(contextMenu.startStep, contextMenu.pitch, val);
+                  }
+                }
+              }
+            },
+            {
+              label: (() => {
+                const noteObj = track.steps[contextMenu.startStep]?.find(n => (typeof n === 'string' ? n : n.pitch) === contextMenu.pitch);
+                const isMuted = noteObj && typeof noteObj !== 'string' ? !!noteObj.muted : false;
+                return isMuted ? 'Unmute Note (음소거 해제)' : 'Mute Note (음소거)';
+              })(),
+              onClick: () => handleMuteNoteToggle(contextMenu.startStep, contextMenu.pitch)
+            },
+            {
+              label: 'Legato (다음 음까지 늘리기)',
+              onClick: () => handleLegato(contextMenu.startStep, contextMenu.pitch)
+            },
+            {
+              label: 'Duplicate Note (바로 복제)',
+              onClick: () => handleDuplicateNote(contextMenu.startStep, contextMenu.pitch)
+            },
+            {
+              label: 'Transpose +1 Semitone',
+              divider: true,
+              onClick: () => handleTransposeNote(contextMenu.startStep, contextMenu.pitch, 1)
+            },
+            {
+              label: 'Transpose -1 Semitone',
+              onClick: () => handleTransposeNote(contextMenu.startStep, contextMenu.pitch, -1)
+            },
             {
               label: 'Shift Octave Up (+12)',
               onClick: () => handleShiftOctave(contextMenu.startStep, contextMenu.pitch, 'up')
