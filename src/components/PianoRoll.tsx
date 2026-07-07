@@ -36,8 +36,23 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
   const [scaleName, setScaleName] = useState<string>('Major');
   const [swingAmount, setSwingAmount] = useState<number>(50); // 50% = straight, 75% = heavy swing
   const [showVelocityLane, setShowVelocityLane] = useState<boolean>(true);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const velocityScrollRef = useRef<HTMLDivElement>(null);
   const isDraggingPlayhead = useRef(false);
   const BUFFER_STEPS = 128;
+
+  const handleScrollerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (velocityScrollRef.current && velocityScrollRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      velocityScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
+  const handleVelocityScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (scrollerRef.current && scrollerRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+      scrollerRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
 
 
   const synthTracks = tracks.filter(t => t.type === 'synth');
@@ -795,7 +810,12 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
         </div>
       </div>
 
-      <div className="piano-roll-scroller" onContextMenu={(e) => e.preventDefault()}>
+      <div
+        className="piano-roll-scroller"
+        ref={scrollerRef}
+        onScroll={handleScrollerScroll}
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <div className="piano-roll-grid" style={{ minWidth: `${(totalSteps + BUFFER_STEPS) * zoom + 68}px` }}>
           
           {/* Playhead Timeline Header */}
@@ -941,115 +961,124 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
               </div>
           );
         })}
-
-        {/* Velocity Lane Editor */}
-        {showVelocityLane && (
-          <div
-            className="velocity-editor-lane"
-            style={{
-              position: 'sticky',
-              bottom: 0,
-              zIndex: 15,
-              height: '95px',
-              borderTop: '2px solid rgba(255, 255, 255, 0.1)',
-              backgroundColor: '#0c0f1d',
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '4px 0',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '9px',
-                color: '#8b9bb4',
-                padding: '2px 8px 4px 76px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                userSelect: 'none',
-              }}
-            >
-              <span>VELOCITY LANE (1 - 127)</span>
-              <span style={{ marginRight: '8px' }}>Click & Drag to adjust note velocities</span>
-            </div>
-            <div style={{ display: 'flex', height: '65px' }}>
-              <div
-                style={{
-                  width: '68px',
-                  minWidth: '68px',
-                  backgroundColor: '#141414',
-                  borderRight: '2px solid #000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '8px',
-                  fontWeight: 'bold',
-                  color: '#8b9bb4',
-                  userSelect: 'none',
-                }}
-              >
-                VEL
-              </div>
-              <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
-                {Array.from({ length: totalSteps + BUFFER_STEPS }).map((_, stepIdx) => {
-                  const stepNotes = notesList.filter(n => Math.floor(n.startStep) === stepIdx);
-                  const hasNotes = stepNotes.length > 0;
-                  const mainNote = stepNotes[0];
-                  const vel = mainNote ? getNoteVelocity(stepIdx, mainNote.pitch) : 0;
-                  const heightPct = (vel / 127) * 100;
-
-                  return (
-                    <div
-                      key={stepIdx}
-                      style={{
-                        width: `${zoom}px`,
-                        height: '100%',
-                        borderRight: '1px solid rgba(255,255,255,0.04)',
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        justifyContent: 'center',
-                        cursor: hasNotes ? 'ns-resize' : 'default',
-                        position: 'relative',
-                      }}
-                      onMouseDown={(e) => {
-                        if (!hasNotes) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const updateVel = (mouseY: number) => {
-                          const relY = rect.bottom - mouseY;
-                          const newVel = Math.max(1, Math.min(127, Math.round((relY / rect.height) * 127)));
-                          stepNotes.forEach(n => handleVelocityChange(stepIdx, n.pitch, newVel));
-                        };
-                        updateVel(e.clientY);
-                        const onMove = (mEvt: MouseEvent) => updateVel(mEvt.clientY);
-                        const onUp = () => {
-                          window.removeEventListener('mousemove', onMove);
-                          window.removeEventListener('mouseup', onUp);
-                        };
-                        window.addEventListener('mousemove', onMove);
-                        window.addEventListener('mouseup', onUp);
-                      }}
-                    >
-                      {hasNotes && (
-                        <div
-                          style={{
-                            width: '60%',
-                            height: `${heightPct}%`,
-                            backgroundColor: track.color,
-                            boxShadow: `0 0 8px ${track.color}`,
-                            borderRadius: '2px 2px 0 0',
-                            transition: 'height 0.05s ease-out',
-                          }}
-                          title={`Step ${stepIdx + 1}: Velocity ${vel}`}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
+
+    {/* Velocity Lane Editor */}
+    {showVelocityLane && (
+      <div
+        className="velocity-editor-lane"
+        style={{
+          height: '95px',
+          borderTop: '2px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: '#0c0f1d',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '4px 0',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '9px',
+            color: '#8b9bb4',
+            padding: '2px 8px 4px 76px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            userSelect: 'none',
+          }}
+        >
+          <span>VELOCITY LANE (1 - 127)</span>
+          <span style={{ marginRight: '8px' }}>Click & Drag to adjust note velocities</span>
+        </div>
+        <div style={{ display: 'flex', height: '65px' }}>
+          <div
+            style={{
+              width: '68px',
+              minWidth: '68px',
+              backgroundColor: '#141414',
+              borderRight: '2px solid #000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '8px',
+              fontWeight: 'bold',
+              color: '#8b9bb4',
+              userSelect: 'none',
+            }}
+          >
+            VEL
+          </div>
+          <div
+            ref={velocityScrollRef}
+            onScroll={handleVelocityScroll}
+            className="no-scrollbar"
+            style={{
+              display: 'flex',
+              flex: 1,
+              overflowX: 'auto',
+              position: 'relative',
+            }}
+          >
+            <div style={{ display: 'flex', minWidth: `${(totalSteps + BUFFER_STEPS) * zoom}px` }}>
+              {Array.from({ length: totalSteps + BUFFER_STEPS }).map((_, stepIdx) => {
+                const stepNotes = notesList.filter(n => Math.floor(n.startStep) === stepIdx);
+                const hasNotes = stepNotes.length > 0;
+                const mainNote = stepNotes[0];
+                const vel = mainNote ? getNoteVelocity(stepIdx, mainNote.pitch) : 0;
+                const heightPct = (vel / 127) * 100;
+
+                return (
+                  <div
+                    key={stepIdx}
+                    style={{
+                      width: `${zoom}px`,
+                      height: '100%',
+                      borderRight: '1px solid rgba(255,255,255,0.04)',
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      justifyContent: 'center',
+                      cursor: hasNotes ? 'ns-resize' : 'default',
+                      position: 'relative',
+                    }}
+                    onMouseDown={(e) => {
+                      if (!hasNotes) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const updateVel = (mouseY: number) => {
+                        const relY = rect.bottom - mouseY;
+                        const newVel = Math.max(1, Math.min(127, Math.round((relY / rect.height) * 127)));
+                        stepNotes.forEach(n => handleVelocityChange(stepIdx, n.pitch, newVel));
+                      };
+                      updateVel(e.clientY);
+                      const onMove = (mEvt: MouseEvent) => updateVel(mEvt.clientY);
+                      const onUp = () => {
+                        window.removeEventListener('mousemove', onMove);
+                        window.removeEventListener('mouseup', onUp);
+                      };
+                      window.addEventListener('mousemove', onMove);
+                      window.addEventListener('mouseup', onUp);
+                    }}
+                  >
+                    {hasNotes && (
+                      <div
+                        style={{
+                          width: '60%',
+                          height: `${heightPct}%`,
+                          backgroundColor: track.color,
+                          boxShadow: `0 0 8px ${track.color}`,
+                          borderRadius: '2px 2px 0 0',
+                          transition: 'height 0.05s ease-out',
+                        }}
+                        title={`Step ${stepIdx + 1}: Velocity ${vel}`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
       <div className="piano-roll-footer">
         <div className="legend">
