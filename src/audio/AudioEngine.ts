@@ -813,11 +813,12 @@ export class AudioEngine {
     this.activeVoices = this.activeVoices.filter(voice => {
       if (voice.trackId === track.id && voice.note === note) {
         try {
-          const fadeTime = ctx.currentTime + 0.02;
-          voice.gain.gain.cancelScheduledValues(ctx.currentTime);
-          voice.gain.gain.setValueAtTime(voice.gain.gain.value, ctx.currentTime);
+          const targetTime = Math.max(time, ctx.currentTime);
+          const fadeTime = targetTime + 0.015; // 15ms quick crossfade
+          voice.gain.gain.cancelScheduledValues(targetTime);
+          voice.gain.gain.setValueAtTime(voice.gain.gain.value, targetTime);
           voice.gain.gain.linearRampToValueAtTime(0.0001, fadeTime);
-          voice.source.stop(fadeTime);
+          voice.source.stop(fadeTime + 0.01);
         } catch (e) {}
         return false;
       }
@@ -841,7 +842,7 @@ export class AudioEngine {
         sampleSource.buffer = this.pianoBuffers[closestMidi];
         sampleSource.playbackRate.setValueAtTime(playbackRate, time);
         
-        const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+        const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.99);
         const tAttack = time + 0.002;
         const tReleaseStart = time + duration;
         const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -910,7 +911,7 @@ export class AudioEngine {
       
       if (!this.noiseBuffer) return;
       
-      const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+      const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.99);
       const tAttack = time + 0.004;
       const tReleaseStart = time + duration;
       
@@ -1190,7 +1191,7 @@ export class AudioEngine {
         break;
     }
     
-    const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+    const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.99);
     const tAttack = time + 0.01;
     const tDecay = time + 0.01 + duration * 0.3;
     const tReleaseStart = time + duration;
@@ -1722,7 +1723,7 @@ export class AudioEngine {
                     sampleSource.buffer = this.pianoBuffers[closestMidi];
                     sampleSource.playbackRate.setValueAtTime(playbackRate, time);
                     
-                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.99);
                     const tAttack = time + 0.002;
                     const tReleaseStart = time + noteDuration;
                     const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -1783,7 +1784,7 @@ export class AudioEngine {
                       } catch (e) {}
                     }
                   } else {
-                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.99);
                     const tAttack = time + 0.004;
                     const tReleaseStart = time + noteDuration;
                     const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -1970,7 +1971,7 @@ export class AudioEngine {
                       oFilter.frequency.exponentialRampToValueAtTime(Math.max(800, freq * 1.2), time + 0.22);
                       break;
                   }
-                  const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                  const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.99);
                   const tOfflineAttack = time + 0.01;
                   const tOfflineDecay = time + 0.01 + noteDuration * 0.3;
                   const tOfflineReleaseStart = time + noteDuration;
