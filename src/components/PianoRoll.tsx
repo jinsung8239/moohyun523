@@ -116,6 +116,40 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; startStep: number; pitch: string } | null>(null);
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedNotes.length === 0) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        selectedNotes.forEach(key => {
+          const [stepStr, pitch] = key.split('-');
+          const step = Number(stepStr);
+          if (track.steps[step]) {
+            track.steps[step] = track.steps[step].filter(n => {
+              const notePitch = typeof n === 'string' ? n : n.pitch;
+              return notePitch !== pitch;
+            });
+            if (track.steps[step].length === 0) {
+              delete track.steps[step];
+            }
+          }
+        });
+        setSelectedNotes([]);
+        onUpdateSteps();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedNotes, track, onUpdateSteps]);
 
   const notesList = React.useMemo(() => {
     const list: { startStep: number; duration: number; pitch: string; noteObj: any }[] = [];
@@ -249,6 +283,7 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
 
   const handleGridCellMouseDown = (e: React.MouseEvent<HTMLDivElement>, note: string) => {
     if (e.button !== 0) return; // Only trigger for left-clicks
+    if (e.shiftKey) return; // Shift + Click/Drag is for marquee selection
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickStep = clickX / zoom;
@@ -289,6 +324,14 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
     if (e.button !== 0) return; // Only trigger for left-clicks
     e.stopPropagation();
     e.preventDefault();
+
+    if (e.shiftKey) {
+      const noteKey = `${startStep}-${pitch}`;
+      setSelectedNotes(prev =>
+        prev.includes(noteKey) ? prev.filter(k => k !== noteKey) : [...prev, noteKey]
+      );
+      return;
+    }
 
     const isChordDrag = (e.buttons & 2) === 2;
     const startX = e.clientX;
@@ -444,6 +487,87 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleGridMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    
+    // Clear selection if they click without Shift key on the empty background
+    if (!e.shiftKey && e.target === e.currentTarget) {
+      setSelectedNotes([]);
+      return;
+    }
+
+    if (e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const grid = e.currentTarget;
+      const rect = grid.getBoundingClientRect();
+      const startX = e.clientX - rect.left;
+      const startY = e.clientY - rect.top;
+      
+      setMarquee({ startX, startY, currentX: startX, currentY: startY });
+      
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const currentX = moveEvent.clientX - rect.left;
+        const currentY = moveEvent.clientY - rect.top;
+        setMarquee(prev => prev ? { ...prev, currentX, currentY } : null);
+      };
+      
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        
+        setMarquee(finalMarquee => {
+          if (!finalMarquee) return null;
+          
+          const x1 = Math.min(finalMarquee.startX, finalMarquee.currentX);
+          const x2 = Math.max(finalMarquee.startX, finalMarquee.currentX);
+          const y1 = Math.min(finalMarquee.startY, finalMarquee.currentY);
+          const y2 = Math.max(finalMarquee.startY, finalMarquee.currentY);
+          
+          const newlySelected: string[] = [];
+          
+          notesList.forEach(noteItem => {
+            const noteLeft = noteItem.startStep * zoom + 68;
+            const noteRight = noteLeft + noteItem.duration * zoom;
+            
+            const notePitchIdx = CHROMATIC_SCALE.indexOf(noteItem.pitch);
+            if (notePitchIdx === -1) return;
+            
+            const noteTop = 24 + notePitchIdx * 26;
+            const noteBottom = noteTop + 26;
+            
+            const intersects = !(noteRight < x1 || noteLeft > x2 || noteBottom < y1 || noteTop > y2);
+            if (intersects) {
+              newlySelected.push(`${noteItem.startStep}-${noteItem.pitch}`);
+            }
+          });
+          
+          if (upEvent.shiftKey) {
+            setSelectedNotes(prev => {
+              const updated = [...prev];
+              newlySelected.forEach(n => {
+                if (updated.includes(n)) {
+                  updated.splice(updated.indexOf(n), 1);
+                } else {
+                  updated.push(n);
+                }
+              });
+              return updated;
+            });
+          } else {
+            setSelectedNotes(newlySelected);
+          }
+          
+          return null;
+        });
+      };
+      
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
   };
 
   const handleDeleteNote = (startStep: number, pitch: string) => {
@@ -816,7 +940,26 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
         onScroll={handleScrollerScroll}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <div className="piano-roll-grid" style={{ minWidth: `${(totalSteps + BUFFER_STEPS) * zoom + 68}px` }}>
+        <div
+          className="piano-roll-grid"
+          style={{ minWidth: `${(totalSteps + BUFFER_STEPS) * zoom + 68}px`, position: 'relative' }}
+          onMouseDown={handleGridMouseDown}
+        >
+          {marquee && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${Math.min(marquee.startX, marquee.currentX)}px`,
+                top: `${Math.min(marquee.startY, marquee.currentY)}px`,
+                width: `${Math.abs(marquee.startX - marquee.currentX)}px`,
+                height: `${Math.abs(marquee.startY - marquee.currentY)}px`,
+                border: '1.5px dashed #ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                pointerEvents: 'none',
+                zIndex: 100,
+              }}
+            />
+          )}
           
           {/* Playhead Timeline Header */}
           <div
@@ -901,33 +1044,34 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
                     );
                   })}
 
-                  {/* Absolute Note Overlays */}
                   {rowNotes.map((noteItem, noteIdx) => {
                     const left = noteItem.startStep * zoom;
                     const width = noteItem.duration * zoom;
                     const vel = getNoteVelocity(noteItem.startStep, noteItem.pitch);
                     const isMuted = typeof noteItem.noteObj === 'string' ? false : !!noteItem.noteObj.muted;
                     const opacity = isMuted ? 0.25 : 0.4 + (vel / 127) * 0.6;
+                    const noteKey = `${noteItem.startStep}-${noteItem.pitch}`;
+                    const isSelected = selectedNotes.includes(noteKey);
                     
                     return (
                       <div
                         key={`${noteItem.startStep}-${noteIdx}`}
-                        className={`grid-cell active-cell ${isMuted ? 'muted-note-block' : ''}`}
+                        className={`grid-cell active-cell ${isMuted ? 'muted-note-block' : ''} ${isSelected ? 'selected-note' : ''}`}
                         style={{
                           position: 'absolute',
                           left: `${left}px`,
                           width: `${width}px`,
                           height: '22px',
                           top: '2px',
-                          backgroundColor: isMuted ? '#555' : track.color,
-                          boxShadow: isMuted ? 'none' : `0 0 10px ${track.color}`,
-                          opacity,
+                          backgroundColor: isSelected ? '#ffffff' : (isMuted ? '#555' : track.color),
+                          boxShadow: isSelected ? '0 0 12px #ffffff, inset 0 0 4px rgba(0,0,0,0.5)' : (isMuted ? 'none' : `0 0 10px ${track.color}`),
+                          opacity: isSelected ? 0.95 : opacity,
                           borderRadius: '4px',
                           zIndex: 5,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'flex-end',
-                          border: isMuted ? '1px dashed #888' : 'none',
+                          border: isSelected ? '2px solid #ffffff' : (isMuted ? '1px dashed #888' : 'none'),
                         }}
                         onMouseDown={(e) => handleNoteMouseDown(e, noteItem.startStep, note, noteItem.noteObj)}
                         onContextMenu={(e) => {
