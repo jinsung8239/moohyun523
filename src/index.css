@@ -3293,7 +3293,6 @@ body {
   cursor: pointer;
 }
 
-/* Split right side active tab */
 .lower-tab-content-right {
   flex: 1;
   height: 100%;
@@ -3302,10 +3301,18 @@ body {
   flex-direction: column;
 }
 
-.lower-tab-content-right .piano-roll-container,
-.lower-tab-content-right .mixer-container,
-.lower-tab-content-right .drum-pad-container,
-.lower-tab-content-right .automation-editor-container {
+.lower-tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.lower-tab-content-right .piano-roll-panel,
+.lower-tab-content-right .mixer-console-workspace,
+.lower-tab-content-right .drum-pad-panel,
+.lower-tab-content-right .automation-editor-panel {
   height: 100% !important;
 }
 
