@@ -837,7 +837,9 @@ export class AudioEngine {
         sampleSource.buffer = this.pianoBuffers[closestMidi];
         sampleSource.playbackRate.setValueAtTime(playbackRate, time);
         
-        const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+        // Calculate duration - use full step duration for legato connection on short notes
+        const baseDuration = this.stepDuration * durationSteps;
+        const duration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
         const tAttack = time + 0.002;
         const tReleaseStart = time + duration;
         const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -852,7 +854,8 @@ export class AudioEngine {
           ? baseHoldDecay * (1.0 + (track.pedalRelease ?? 3.8) * 0.5) 
           : baseHoldDecay;
         const volumeAtRelease = Math.max(0.05, 0.80 * Math.exp(-duration / holdDecayConstant));
-        const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : 0.3);
+        // Extend release for single 16th notes to ensure smooth legato
+        const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : durationSteps === 1 ? 0.45 : 0.3);
         
         const ampEnv = ctx.createGain();
         ampEnv.gain.setValueAtTime(0.0001, time);
@@ -906,7 +909,9 @@ export class AudioEngine {
       
       if (!this.noiseBuffer) return;
       
-      const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+      // Calculate duration - use full step duration for legato connection on short notes
+      const baseDuration = this.stepDuration * durationSteps;
+      const duration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
       const tAttack = time + 0.004;
       const tReleaseStart = time + duration;
       
@@ -920,7 +925,8 @@ export class AudioEngine {
       const baseRelease = isSustainPedal 
         ? Math.max(0.2, (track.pedalRelease ?? 3.5) * Math.pow(pedalDampVal, midiNote - 36)) 
         : (midiNote < 91 ? 0.32 : Math.max(0.32, 2.0 * Math.pow(0.95, midiNote - 91)));
-      const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : 0.3);
+      // Extend release for single 16th notes to ensure smooth legato
+      const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : durationSteps === 1 ? 0.45 : 0.3);
 
       const ampEnv = ctx.createGain();
       ampEnv.gain.setValueAtTime(0.0001, time);
@@ -1186,7 +1192,9 @@ export class AudioEngine {
         break;
     }
     
-    const duration = Math.max(0.15, this.stepDuration * durationSteps * 0.95);
+    // Calculate duration - use full step duration for legato connection on short notes
+    const baseDuration = this.stepDuration * durationSteps;
+    const duration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
     const tAttack = time + 0.01;
     const tDecay = time + 0.01 + duration * 0.3;
     const tReleaseStart = time + duration;
@@ -1195,7 +1203,9 @@ export class AudioEngine {
     const baseRelease = isSustainPedal 
       ? Math.max(1.5, (track.pedalRelease ?? 3.5) * Math.pow(track.pedalDamping ?? 0.96, midiNote - 36)) 
       : 0.08;
-    const tReleaseEnd = tReleaseStart + (track.preset === 'pad' ? Math.max(0.3, baseRelease) : track.preset === 'pluck' ? Math.max(0.08, baseRelease * 0.2) : baseRelease);
+    // Extend release for single 16th notes to ensure smooth legato
+    const baseReleaseEnd = track.preset === 'pad' ? Math.max(0.3, baseRelease) : track.preset === 'pluck' ? Math.max(0.08, baseRelease * 0.2) : (durationSteps === 1 ? 0.18 : baseRelease);
+    const tReleaseEnd = tReleaseStart + baseReleaseEnd;
     
     ampEnv.gain.setValueAtTime(0.0, time);
     
@@ -1718,7 +1728,9 @@ export class AudioEngine {
                     sampleSource.buffer = this.pianoBuffers[closestMidi];
                     sampleSource.playbackRate.setValueAtTime(playbackRate, time);
                     
-                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                    // Calculate duration - use full step duration for legato connection on short notes
+                    const baseDuration = tStepDuration * durationSteps;
+                    const noteDuration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
                     const tAttack = time + 0.002;
                     const tReleaseStart = time + noteDuration;
                     const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -1733,7 +1745,8 @@ export class AudioEngine {
                       ? baseHoldDecay * (1.0 + (track.pedalRelease ?? 3.8) * 0.5) 
                       : baseHoldDecay;
                     const volumeAtRelease = Math.max(0.05, 0.80 * Math.exp(-noteDuration / holdDecayConstant));
-                    const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : 0.3);
+                    // Extend release for single 16th notes to ensure smooth legato
+                    const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : durationSteps === 1 ? 0.45 : 0.3);
                     
                     const ampEnv = offlineCtx.createGain();
                     ampEnv.gain.setValueAtTime(0.0001, time);
@@ -1779,7 +1792,9 @@ export class AudioEngine {
                       } catch (e) {}
                     }
                   } else {
-                    const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                    // Calculate duration - use full step duration for legato connection on short notes
+                    const baseDuration = tStepDuration * durationSteps;
+                    const noteDuration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
                     const tAttack = time + 0.004;
                     const tReleaseStart = time + noteDuration;
                     const isSustainPedal = !track.pedalBypass || track.preset === 'sustain_piano';
@@ -1791,7 +1806,8 @@ export class AudioEngine {
                     const baseRelease = isSustainPedal 
                        ? Math.max(0.2, (track.pedalRelease ?? 3.5) * Math.pow(pedalDampVal, midiNote - 36)) 
                        : (midiNote < 91 ? 0.32 : Math.max(0.32, 2.0 * Math.pow(0.95, midiNote - 91)));
-                    const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : 0.3);
+                    // Extend release for single 16th notes to ensure smooth legato
+                    const tReleaseEnd = tReleaseStart + (isSustainPedal ? baseRelease : durationSteps === 1 ? 0.45 : 0.3);
 
                     const ampEnv = offlineCtx.createGain();
                     ampEnv.gain.setValueAtTime(0.0001, time);
@@ -1966,7 +1982,9 @@ export class AudioEngine {
                       oFilter.frequency.exponentialRampToValueAtTime(Math.max(800, freq * 1.2), time + 0.22);
                       break;
                   }
-                  const noteDuration = Math.max(0.15, tStepDuration * durationSteps * 0.95);
+                  // Calculate duration - use full step duration for legato connection on short notes
+                  const baseDuration = tStepDuration * durationSteps;
+                  const noteDuration = durationSteps === 1 ? baseDuration : Math.max(0.15, baseDuration * 0.95);
                   const tOfflineAttack = time + 0.01;
                   const tOfflineDecay = time + 0.01 + noteDuration * 0.3;
                   const tOfflineReleaseStart = time + noteDuration;
@@ -1975,7 +1993,9 @@ export class AudioEngine {
                   const baseRelease = isSustainPedal 
                     ? Math.max(1.5, (track.pedalRelease ?? 3.5) * Math.pow(track.pedalDamping ?? 0.96, midiNote - 36)) 
                     : 0.08;
-                  const tOfflineReleaseEnd = tOfflineReleaseStart + (track.preset === 'pad' ? Math.max(0.3, baseRelease) : track.preset === 'pluck' ? Math.max(0.08, baseRelease * 0.2) : baseRelease);
+                  // Extend release for single 16th notes to ensure smooth legato
+                  const baseReleaseEnd = track.preset === 'pad' ? Math.max(0.3, baseRelease) : track.preset === 'pluck' ? Math.max(0.08, baseRelease * 0.2) : (durationSteps === 1 ? 0.18 : baseRelease);
+                  const tOfflineReleaseEnd = tOfflineReleaseStart + baseReleaseEnd;
 
                   oAmpEnv.gain.setValueAtTime(0.0, time);
                   if (track.preset === 'pad') {
